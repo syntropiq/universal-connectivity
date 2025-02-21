@@ -18,10 +18,10 @@ import { webRTC, webRTCDirect } from '@libp2p/webrtc'
 import { circuitRelayTransport } from '@libp2p/circuit-relay-v2'
 import { pubsubPeerDiscovery } from '@libp2p/pubsub-peer-discovery'
 import { ping } from '@libp2p/ping'
-import { BOOTSTRAP_PEER_IDS, CHAT_FILE_TOPIC, CHAT_TOPIC, PUBSUB_PEER_DISCOVERY } from './constants'
+import { BOOTSTRAP_PEER_IDS, CHAT_FILE_TOPIC, CHAT_TOPIC, PUBSUB_PEER_DISCOVERY } from '@/lib/constants'
 import first from 'it-first'
-import { forComponent } from './logger'
-import { directMessage } from './direct-message'
+import { forComponent } from '@/lib/logger'
+import { directMessage } from '@/lib/direct-message'
 import type { Libp2pType } from '@/context/ctx'
 
 const log = forComponent('libp2p-core')
