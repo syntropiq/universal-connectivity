@@ -4,12 +4,11 @@
     "dev": "next dev --experimental-https",
     "build": "next build",
     "start": "next start",
+    "start:headless": "node .next/server/headless.js",
     "format": "prettier --write src",
     "lint": "prettier . --check && next lint",
     "tsc": "tsc --noEmit -p tsconfig.json",
-    "protobuf": "protons src/lib/protobuf/*.proto",
-    "build:headless": "tsc --project tsconfig.headless.json",
-    "start:headless": "ts-node src/demo-headless.ts"
+    "protobuf": "protons src/lib/protobuf/*.proto"
   },
   "dependencies": {
     "@chainsafe/libp2p-gossipsub": "^14.1.0",
