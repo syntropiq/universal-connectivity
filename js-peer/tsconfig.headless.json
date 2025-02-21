@@ -1,0 +1,12 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "module": "CommonJS",
+    "outDir": "dist/headless",
+    "target": "ES2020",
+    "declaration": true,
+    "noEmit": false
+  },
+  "include": ["src/lib/libp2p-core.ts", "src/demo-headless.ts", "src/index-headless.ts"],
+  "exclude": ["node_modules", "src/pages", "src/components"]
+}

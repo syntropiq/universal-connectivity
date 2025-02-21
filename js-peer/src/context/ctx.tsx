@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react'
-import { startLibp2p } from '../lib/libp2p'
+import { createHeadlessLibp2p } from '../lib/libp2p-core'
 import { ChatProvider } from './chat-ctx'
 import type { Libp2p, PubSub } from '@libp2p/interface'
 import type { Identify } from '@libp2p/identify'
@@ -15,7 +15,7 @@ export type Libp2pType = Libp2p<{
 }>
 
 export const libp2pContext = createContext<{ libp2p: Libp2pType }>({
-  // @ts-ignore to avoid having to check isn't undefined everywhere. Can't be undefined because children are conditionally rendered
+  // @ts-ignore to avoid having to check isn't undefined everywhere
   libp2p: undefined,
 })
 
@@ -23,7 +23,7 @@ interface WrapperProps {
   children?: ReactNode
 }
 
-// This is needed to prevent libp2p from instantiating more than once
+// Prevent multiple instantiation
 let loaded = false
 export function AppWrapper({ children }: WrapperProps) {
   const [libp2p, setLibp2p] = useState<Libp2pType | undefined>(undefined)
@@ -34,15 +34,17 @@ export function AppWrapper({ children }: WrapperProps) {
       if (loaded) return
       try {
         loaded = true
-        const libp2p = await startLibp2p()
+        const { events, ...libp2pNode } = await createHeadlessLibp2p()
 
-        if (!libp2p) {
+        if (!libp2pNode) {
           throw new Error('failed to start libp2p')
         }
-        // @ts-ignore
-        window.libp2p = libp2p
 
-        setLibp2p(libp2p as Libp2pType)
+        // Expose libp2p instance globally for debugging
+        // @ts-ignore
+        window.libp2p = libp2pNode
+
+        setLibp2p(libp2pNode)
       } catch (e) {
         console.error('failed to start libp2p', e)
         setError(`failed to start libp2p ${e}`)
