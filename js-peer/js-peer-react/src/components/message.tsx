@@ -1,6 +1,6 @@
-import React, { useEffect } from 'react'
+import React from 'react'
 import { useLibp2pContext } from '@/context/ctx'
-import { ChatMessage, useChatContext } from '@/context/chat-ctx'
+import { ChatMessage } from '@universal-connectivity/js-peer-lib'
 import { PeerWrapper } from './peer'
 import { peerIdFromString } from '@libp2p/peer-id'
 import { useMarkAsRead } from '@/hooks/useMarkAsRead'
@@ -12,31 +12,40 @@ interface Props extends ChatMessage {
 export const Message = ({ msgId, msg, fileObjectUrl, peerId, read, dm, receivedAt }: Props) => {
   const { libp2p } = useLibp2pContext()
 
-  const isSelf: boolean = libp2p.peerId.equals(peerId)
-
-  const timestamp = new Date(receivedAt).toLocaleString()
-
+  // Mark message as read if needed
   useMarkAsRead(msgId, peerId, read, dm)
+
+  const node = libp2p.getNode()
+  if (!node) return null
+
+  const isSelf = node.peerId.toString() === peerId
+  const timestamp = new Date(receivedAt).toLocaleString()
+  const peerIdObj = peerIdFromString(peerId)
 
   return (
     <li className={`flex ${isSelf && 'flex-row-reverse'} gap-2`}>
-      <PeerWrapper key={peerId} peer={peerIdFromString(peerId)} self={isSelf} withName={false} withUnread={false} />
+      <PeerWrapper key={peerId} peer={peerIdObj} self={isSelf} withName={false} withUnread={false} />
       <div className="flex relative max-w-xl px-4 py-2 text-gray-700 rounded shadow bg-white">
         <div className="block">
-          {msg}
-          <p>
-            {fileObjectUrl ? (
-              <a href={fileObjectUrl} target="_blank">
-                <b>Download</b>
+          <div className="mb-2">{msg}</div>
+          {fileObjectUrl && (
+            <div className="mt-2 border-t pt-2">
+              <a 
+                href={fileObjectUrl} 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="text-blue-600 hover:text-blue-800 font-medium"
+              >
+                Download File
               </a>
-            ) : (
-              ''
+            </div>
+          )}
+          <div className="mt-2 flex items-center justify-between text-xs text-gray-400">
+            {!dm && !isSelf && (
+              <span className="italic">from: {peerId.slice(-7)}</span>
             )}
-          </p>
-          <p className="italic text-gray-400">
-            {!dm && peerId !== libp2p.peerId.toString() ? `from: ${peerId.slice(-4)}` : null}{' '}
-          </p>
-          <span className="relative pl-1 text-xs text-slate-400">{timestamp}</span>
+            <span>{timestamp}</span>
+          </div>
         </div>
       </div>
     </li>

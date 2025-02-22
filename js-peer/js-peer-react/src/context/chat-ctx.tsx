@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState } from 'react'
+import React, { createContext, useCallback, useContext, useEffect, useState } from 'react'
 import { useLibp2pContext } from './ctx'
 import type { Message } from '@libp2p/interface'
 import {
@@ -7,14 +7,14 @@ import {
   FILE_EXCHANGE_PROTOCOL,
   MIME_TEXT_PLAIN,
   PUBSUB_PEER_DISCOVERY,
-} from '@/lib/constants'
+  DirectMessageEvent
+} from '@universal-connectivity/js-peer-lib'
 import { toString as uint8ArrayToString } from 'uint8arrays/to-string'
 import { fromString as uint8ArrayFromString } from 'uint8arrays/from-string'
 import { pipe } from 'it-pipe'
 import map from 'it-map'
 import * as lp from 'it-length-prefixed'
 import { forComponent } from '@/lib/logger'
-import { DirectMessageEvent, directMessageEvent } from '@/lib/direct-message'
 
 const log = forComponent('chat-context')
 
@@ -73,8 +73,7 @@ export const ChatProvider = ({ children }: any) => {
 
   const { libp2p } = useLibp2pContext()
 
-  const messageCB = (evt: CustomEvent<Message>) => {
-    // FIXME: Why does 'from' not exist on type 'Message'?
+  const messageCB = useCallback((evt: CustomEvent<Message>) => {
     const { topic, data } = evt.detail
 
     switch (topic) {
@@ -93,44 +92,53 @@ export const ChatProvider = ({ children }: any) => {
         console.error(`Unexpected event %o on gossipsub topic: ${topic}`, evt)
       }
     }
-  }
+  }, [chatMessageCB, chatFileMessageCB])
 
   const chatMessageCB = (evt: CustomEvent<Message>, topic: string, data: Uint8Array) => {
     const msg = new TextDecoder().decode(data)
+    const node = libp2p.getNode()
+    if (!node) return
+    
     log(`${topic}: ${msg}`)
+    
+    const chatMsg: ChatMessage = {
+      msgId: crypto.randomUUID(),
+      msg,
+      fileObjectUrl: undefined,
+      peerId: evt.detail.from?.toString() || 'unknown',
+      read: false,
+      receivedAt: Date.now(),
+    }
 
     // Append signed messages, otherwise discard
     if (evt.detail.type === 'signed') {
-      setMessageHistory([
-        ...messageHistory,
-        {
-          msgId: crypto.randomUUID(),
-          msg,
-          fileObjectUrl: undefined,
-          peerId: evt.detail.from.toString(),
-          read: false,
-          receivedAt: Date.now(),
-        },
-      ])
+      setMessageHistory((prev) => [...prev, chatMsg])
     }
   }
 
   const chatFileMessageCB = async (evt: CustomEvent<Message>, topic: string, data: Uint8Array) => {
-    const newChatFileMessage = (id: string, body: Uint8Array) => {
-      return `File: ${id} (${body.length} bytes)`
-    }
-    const fileId = new TextDecoder().decode(data)
+    const node = libp2p.getNode()
+    if (!node) return
 
-    // if the message isn't signed, discard it.
-    if (evt.detail.type !== 'signed') {
-      return
-    }
+    // if the message isn't signed, discard it
+    if (evt.detail.type !== 'signed') return
+
+    const fileId = new TextDecoder().decode(data)
     const senderPeerId = evt.detail.from
 
     try {
-      const node = libp2p.getNode()
-      if (!node) return
+      // Create file message before downloading
+      const chatMsg: ChatMessage = {
+        msgId: crypto.randomUUID(),
+        msg: `Receiving file: ${fileId}...`,
+        fileObjectUrl: undefined,
+        peerId: senderPeerId.toString(),
+        read: false,
+        receivedAt: Date.now(),
+      }
+      setMessageHistory((prev) => [...prev, chatMsg])
 
+      // Download file
       const stream = await node.dialProtocol(senderPeerId, FILE_EXCHANGE_PROTOCOL)
       await pipe(
         [uint8ArrayFromString(fileId)],
@@ -164,45 +172,49 @@ export const ChatProvider = ({ children }: any) => {
     if (!node) return
 
     const handleDirectMessage = (evt: CustomEvent<DirectMessageEvent>) => {
-      const peerId = evt.detail.connection.remotePeer.toString()
+      const { from, message } = evt.detail
+      if (message.type !== MIME_TEXT_PLAIN) return
 
-      if (evt.detail.type !== MIME_TEXT_PLAIN) {
-        throw new Error(`unexpected message type: ${evt.detail.type}`)
-      }
-
-      const message: ChatMessage = {
-        msg: evt.detail.content,
-        read: false,
+      const msg: ChatMessage = {
         msgId: crypto.randomUUID(),
+        msg: message.data,
         fileObjectUrl: undefined,
-        peerId: peerId,
+        peerId: from.toString(),
+        read: false,
         receivedAt: Date.now(),
       }
 
-      const updatedMessages = directMessages[peerId] ? [...directMessages[peerId], message] : [message]
-
-      setDirectMessages({
-        ...directMessages,
-        [peerId]: updatedMessages,
+      setDirectMessages((prev) => {
+        const peerMessages = prev[from.toString()] || []
+        return {
+          ...prev,
+          [from.toString()]: [...peerMessages, msg],
+        }
       })
     }
 
-    node.services.directMessage.addEventListener(directMessageEvent, handleDirectMessage)
+    node.services.directMessage.addEventListener('message', handleDirectMessage)
 
     return () => {
       const node = libp2p.getNode()
       if (!node) return
-      node.services.directMessage.removeEventListener(directMessageEvent, handleDirectMessage)
+      node.services.directMessage.removeEventListener('message', handleDirectMessage)
     }
-  }, [directMessages, libp2p, setDirectMessages])
+  }, [libp2p])
 
   useEffect(() => {
     const node = libp2p.getNode()
     if (!node) return
 
+    // Subscribe to chat topics
+    node.services.pubsub.subscribe(CHAT_TOPIC)
+    node.services.pubsub.subscribe(CHAT_FILE_TOPIC)
+
+    // Set up message handlers
     node.services.pubsub.addEventListener('message', messageCB)
 
-    node.handle(FILE_EXCHANGE_PROTOCOL, ({ stream }) => {
+    // Set up file exchange handler
+    node.handle(FILE_EXCHANGE_PROTOCOL, ({ stream }: { stream: any }) => {
       pipe(
         stream.source,
         (source) => lp.decode(source),
@@ -217,16 +229,41 @@ export const ChatProvider = ({ children }: any) => {
       )
     })
 
+    // Set up direct message handler
+    node.services.directMessage.addEventListener('message', (evt: CustomEvent<DirectMessageEvent>) => {
+      const { from, message } = evt.detail
+      if (message.type !== MIME_TEXT_PLAIN) return
+
+      const msg: ChatMessage = {
+        msgId: crypto.randomUUID(),
+        msg: message.data,
+        fileObjectUrl: undefined,
+        peerId: from.toString(),
+        read: false,
+        receivedAt: Date.now(),
+      }
+
+      setDirectMessages((prev) => {
+        const peerMessages = prev[from.toString()] || []
+        return {
+          ...prev,
+          [from.toString()]: [...peerMessages, msg],
+        }
+      })
+    })
+
     return () => {
       ;(async () => {
         const node = libp2p.getNode()
         if (!node) return
-        // Cleanup handlers 👇
+        // Cleanup handlers
         node.services.pubsub.removeEventListener('message', messageCB)
         await node.unhandle(FILE_EXCHANGE_PROTOCOL)
+        node.services.pubsub.unsubscribe(CHAT_TOPIC)
+        node.services.pubsub.unsubscribe(CHAT_FILE_TOPIC)
       })()
     }
-  }, [files, libp2p])
+  }, [files, libp2p, messageCB])
 
   return (
     <chatContext.Provider

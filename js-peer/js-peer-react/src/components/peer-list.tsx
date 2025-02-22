@@ -1,7 +1,7 @@
 import { XCircleIcon } from '@heroicons/react/24/solid'
 import type { PeerId, Connection } from '@libp2p/interface'
 import { Badge } from './badge'
-import { useCallback } from 'react'
+import { useCallback, useMemo } from 'react'
 import { useLibp2pContext } from '@/context/ctx'
 
 interface PeerListProps {
@@ -9,9 +9,16 @@ interface PeerListProps {
 }
 
 export default function PeerList({ connections }: PeerListProps) {
+  // Sort connections by peer ID for consistent display
+  const sortedConnections = useMemo(() => {
+    return [...connections].sort((a, b) => 
+      a.remotePeer.toString().localeCompare(b.remotePeer.toString())
+    )
+  }, [connections])
+
   return (
     <ul role="list" className="divide-y divide-gray-100">
-      {connections.map((connection) => (
+      {sortedConnections.map((connection) => (
         <Peer key={connection.id} connection={connection} />
       ))}
     </ul>
@@ -21,52 +28,73 @@ export default function PeerList({ connections }: PeerListProps) {
 interface PeerProps {
   connection: Connection
 }
+
 function Peer({ connection }: PeerProps) {
   const { libp2p } = useLibp2pContext()
 
   const handleDisconnectPeer = useCallback(
-    (peerId: PeerId) => {
-      libp2p.hangUp(peerId)
+    async (peerId: PeerId) => {
+      const node = libp2p.getNode()
+      if (!node) return
+
+      try {
+        await node.disconnect(peerId)
+      } catch (e) {
+        console.error('Failed to disconnect from peer:', e)
+      }
     },
-    [libp2p],
+    [libp2p]
   )
 
-  let ipAddr
-  try {
-    const nodeAddr = connection.remoteAddr?.nodeAddress()
-    ipAddr = `${nodeAddr.address}:${nodeAddr.port} |`
-  } catch (e) {
-    ipAddr = null
-  }
+  const { ipAddr, protocol } = useMemo(() => {
+    try {
+      const nodeAddr = connection.remoteAddr?.nodeAddress()
+      return {
+        ipAddr: nodeAddr ? `${nodeAddr.address}:${nodeAddr.port}` : null,
+        protocol: connection.remoteAddr?.protoNames().join(', ') || 'unknown'
+      }
+    } catch {
+      return { ipAddr: null, protocol: 'unknown' }
+    }
+  }, [connection])
+
+  const isDirectMessageCapable = useMemo(() => {
+    const node = libp2p.getNode()
+    return node?.services.directMessage.isDmCapable(connection.remotePeer) || false
+  }, [connection.remotePeer, libp2p])
 
   return (
-    <li key={connection.id} className="flex justify-between gap-x-6 py-3">
+    <li className="flex justify-between gap-x-6 py-3 px-4 hover:bg-gray-50">
       <div className="flex min-w-0 gap-x-4">
         <div className="mt-1 flex items-center gap-x-1.5">
-          <div className="flex-none rounded-full bg-emerald-500/20 p-1">
-            <div className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+          <div className={`flex-none rounded-full ${isDirectMessageCapable ? 'bg-emerald-500/20' : 'bg-gray-300/20'} p-1`}>
+            <div className={`h-1.5 w-1.5 rounded-full ${isDirectMessageCapable ? 'bg-emerald-500' : 'bg-gray-300'}`} />
           </div>
         </div>
-        {/* <img className="h-12 w-12 flex-none rounded-full bg-gray-50" src={person.imageUrl} alt="" /> */}
         <div className="min-w-0 flex-auto">
-          <p className="text-sm font-semibold leading-6 text-gray-900">
-            {connection.remotePeer.toString()}{' '}
-            {connection.remoteAddr.protoNames().includes('webrtc') ? <Badge color="indigo">P2P Browser</Badge> : null}
-          </p>
-          <p className="mt-1 truncate text-xs leading-5 text-gray-500">
-            {ipAddr} {connection.remoteAddr.protoNames().join(', ')}
+          <div className="flex items-center gap-2">
+            <p className="text-sm font-medium text-gray-900">
+              {connection.remotePeer.toString().slice(-7)}
+            </p>
+            {ipAddr && <Badge text={ipAddr} />}
+            {connection.remoteAddr?.protoNames().includes('webrtc') && 
+              <Badge text="P2P Browser" variant="indigo" />
+            }
+          </div>
+          <p className="mt-1 text-xs text-gray-500">
+            {protocol}
+            <span className="mx-2">•</span>
+            <Badge text={connection.direction} variant={connection.direction === 'inbound' ? 'green' : 'blue'} />
           </p>
         </div>
       </div>
-
-      {/* <div className="flex gap-x-2 items-center "> */}
-      <div className="hidden  sm:flex sm:flex-col sm:items-end">
+      <div className="flex items-center gap-x-4">
         <button
+          className="rounded p-2 bg-red-50 hover:bg-red-100 transition-colors group"
           onClick={() => handleDisconnectPeer(connection.remotePeer)}
-          className="bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-4 rounded flex flex-row"
+          title="Disconnect peer"
         >
-          <XCircleIcon className="w-6 h-6" />
-          <span className="pl-1">Disconnect</span>
+          <XCircleIcon className="h-5 w-5 text-red-400 group-hover:text-red-500" />
         </button>
       </div>
     </li>
