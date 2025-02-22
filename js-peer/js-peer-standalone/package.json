@@ -1,8 +1,21 @@
 {
   "name": "universal-connectivity-browser",
+  "type": "module",
+  "main": "dist/node/index.js",
+  "browser": "dist/browser/index.js",
+  "exports": {
+    ".": {
+      "browser": "./dist/browser/index.js",
+      "node": "./dist/node/index.js",
+      "default": "./dist/browser/index.js"
+    }
+  },
   "scripts": {
     "dev": "next dev --experimental-https",
-    "build": "next build",
+    "build:static": "BUILD_MODE=static next build",
+    "build:standalone": "BUILD_MODE=standalone next build",
+    "build:lib": "tsc -p tsconfig.lib.json",
+    "build": "npm run build:lib && npm run build:static",
     "start": "next start",
     "format": "prettier --write src",
     "lint": "prettier . --check && next lint",

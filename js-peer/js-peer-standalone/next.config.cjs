@@ -6,7 +6,6 @@ const nextConfig = {
   images: {
     unoptimized: true,
   },
-  // Ensure we properly compile for Node.js environment when needed
   webpack: (config, { isServer }) => {
     if (isServer && process.env.BUILD_MODE === 'standalone') {
       config.optimization.moduleIds = 'named'
