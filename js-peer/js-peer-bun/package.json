@@ -1,0 +1,32 @@
+{
+  "name": "js-peer-bun",
+  "version": "1.0.0",
+  "type": "module",
+  "main": "dist/index.js",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "bun build ./src/index.ts --outdir ./dist",
+    "start": "DEBUG=* bun run dist/index.js",
+    "dev": "DEBUG=* bun run --watch src/index.ts",
+    "watch": "bun build ./src/index.ts --outdir ./dist --watch"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "A standalone libp2p node for the universal-connectivity network using Bun runtime",
+  "dependencies": {
+    "@libp2p/interface": "^2.6.0",
+    "@types/debug": "^4.1.12",
+    "@universal-connectivity/js-peer-lib": "file:../js-peer-lib",
+    "debug": "^4.4.0"
+  },
+  "devDependencies": {
+    "bun-types": "latest",
+    "typescript": "^5.7.3"
+  }
+  }
+}
