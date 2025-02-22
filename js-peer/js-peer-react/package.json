@@ -1,13 +1,14 @@
 {
   "name": "universal-connectivity-browser",
+  "type": "module",
   "scripts": {
-    "dev": "next dev --experimental-https",
-    "build": "next build",
-    "start": "next start",
-    "format": "prettier --write src",
-    "lint": "prettier . --check && next lint",
-    "tsc": "tsc --noEmit -p tsconfig.json",
-    "protobuf": "protons src/lib/protobuf/*.proto"
+    "dev": "bun --bun next dev --experimental-https",
+    "build": "bun --bun next build",
+    "start": "bun --bun next start",
+    "format": "bun prettier --write src",
+    "lint": "bun prettier . --check && bun --bun next lint",
+    "tsc": "bun tsc --noEmit -p tsconfig.json",
+    "protobuf": "bun protons src/lib/protobuf/*.proto"
   },
   "dependencies": {
     "@chainsafe/libp2p-gossipsub": "^14.1.0",
