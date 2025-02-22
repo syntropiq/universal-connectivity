@@ -9,6 +9,7 @@ export interface PeerProps {
   self: boolean;
   withName: boolean;
   withUnread: boolean;
+  connected?: boolean;  // Making it optional to maintain backward compatibility
 }
 
 export function PeerWrapper({ peer, self, withName, withUnread }: PeerProps) {

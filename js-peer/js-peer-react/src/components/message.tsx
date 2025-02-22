@@ -1,9 +1,9 @@
 import React from 'react'
 import { useLibp2pContext } from '@/context/ctx'
-import { ChatMessage } from '@universal-connectivity/js-peer-lib'
 import { PeerWrapper } from './peer'
 import { peerIdFromString } from '@libp2p/peer-id'
 import { useMarkAsRead } from '@/hooks/useMarkAsRead'
+import type { ChatMessage } from '@/context/chat-ctx'
 
 interface Props extends ChatMessage {
   dm: boolean

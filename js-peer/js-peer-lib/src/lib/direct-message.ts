@@ -18,11 +18,20 @@ const ERRORS = {
   STATUS_NOT_OK: (status: dm.Status) => `Received status: ${status}, expected OK`,
 }
 
+export interface SignedMessage {
+  type: 'signed'
+  from: PeerId
+  data: Uint8Array
+  sequenceNumber: bigint
+  topic: string
+}
+
 export interface DirectMessageEvent {
-  content: string
-  type: string
-  stream: Stream
-  connection: Connection
+  from: PeerId
+  message: {
+    type: string
+    data: string
+  }
 }
 
 export interface DirectMessageEvents {
@@ -150,7 +159,6 @@ export class DirectMessage extends TypedEventEmitter<DirectMessageEvents> implem
       const datastream = pbStream(stream)
       const signal = AbortSignal.timeout(5000)
       const req = await datastream.read(dm.DirectMessageRequest, { signal })
-
       const res: dm.DirectMessageResponse = {
         status: dm.Status.OK,
         metadata: {
@@ -158,16 +166,14 @@ export class DirectMessage extends TypedEventEmitter<DirectMessageEvents> implem
           timestamp: BigInt(Date.now()),
         },
       }
-
       await datastream.write(res, dm.DirectMessageResponse, { signal })
-
       const detail: DirectMessageEvent = {
-        content: req.content,
-        type: req.type,
-        stream: stream,
-        connection: connection,
+        from: connection.remotePeer,
+        message: {
+          type: req.type,
+          data: req.content
+        }
       }
-
       this.dispatchEvent(new CustomEvent(directMessageEvent, { detail }))
     } catch (e: any) {
       stream?.abort(e)

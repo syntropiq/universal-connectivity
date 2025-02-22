@@ -32,18 +32,21 @@ interface PeerProps {
 function Peer({ connection }: PeerProps) {
   const { libp2p } = useLibp2pContext()
 
-  const handleDisconnectPeer = useCallback(
+  const handleDisconnect = useCallback(
     async (peerId: PeerId) => {
       const node = libp2p.getNode()
       if (!node) return
 
       try {
-        await node.disconnect(peerId)
+        // Get all connections to this peer
+        const connections = node.getConnections(peerId)
+        // Close each connection
+        await Promise.all(connections.map(conn => conn.close()))
       } catch (e) {
         console.error('Failed to disconnect from peer:', e)
       }
     },
-    [libp2p]
+    [libp2p],
   )
 
   const { ipAddr, protocol } = useMemo(() => {
@@ -60,7 +63,7 @@ function Peer({ connection }: PeerProps) {
 
   const isDirectMessageCapable = useMemo(() => {
     const node = libp2p.getNode()
-    return node?.services.directMessage.isDmCapable(connection.remotePeer) || false
+    return node?.services.directMessage.isDMPeer(connection.remotePeer) || false
   }, [connection.remotePeer, libp2p])
 
   return (
@@ -73,25 +76,30 @@ function Peer({ connection }: PeerProps) {
         </div>
         <div className="min-w-0 flex-auto">
           <div className="flex items-center gap-2">
-            <p className="text-sm font-medium text-gray-900">
+            <p className="text-sm text-gray-500 truncate">
               {connection.remotePeer.toString().slice(-7)}
             </p>
-            {ipAddr && <Badge text={ipAddr} />}
+            {ipAddr && <Badge>{ipAddr}</Badge>}
             {connection.remoteAddr?.protoNames().includes('webrtc') && 
-              <Badge text="P2P Browser" variant="indigo" />
+              <Badge color="indigo">P2P Browser</Badge>
+            }
+            {isDirectMessageCapable && 
+              <Badge color="green">DM</Badge>
             }
           </div>
           <p className="mt-1 text-xs text-gray-500">
             {protocol}
             <span className="mx-2">•</span>
-            <Badge text={connection.direction} variant={connection.direction === 'inbound' ? 'green' : 'blue'} />
+            <Badge color={connection.direction === 'inbound' ? 'green' : 'blue'}>
+              {connection.direction}
+            </Badge>
           </p>
         </div>
       </div>
       <div className="flex items-center gap-x-4">
         <button
           className="rounded p-2 bg-red-50 hover:bg-red-100 transition-colors group"
-          onClick={() => handleDisconnectPeer(connection.remotePeer)}
+          onClick={() => handleDisconnect(connection.remotePeer)}
           title="Disconnect peer"
         >
           <XCircleIcon className="h-5 w-5 text-red-400 group-hover:text-red-500" />

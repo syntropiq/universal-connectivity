@@ -73,7 +73,7 @@ export function ChatPeerList() {
 
         {/* Other peers */}
         {sortedPeers.map(peer => {
-          const isConnected = node.services.directMessage.isDmCapable(peer)
+          const isConnected = node.services.directMessage.isDMPeer(peer)
           const hasUnread = (directMessages[peer.toString()] || []).some(msg => !msg.read)
           
           return (
