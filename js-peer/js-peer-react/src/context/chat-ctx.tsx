@@ -128,7 +128,10 @@ export const ChatProvider = ({ children }: any) => {
     const senderPeerId = evt.detail.from
 
     try {
-      const stream = await libp2p.dialProtocol(senderPeerId, FILE_EXCHANGE_PROTOCOL)
+      const node = libp2p.getNode()
+      if (!node) return
+
+      const stream = await node.dialProtocol(senderPeerId, FILE_EXCHANGE_PROTOCOL)
       await pipe(
         [uint8ArrayFromString(fileId)],
         (source) => lp.encode(source),
@@ -157,6 +160,9 @@ export const ChatProvider = ({ children }: any) => {
   }
 
   useEffect(() => {
+    const node = libp2p.getNode()
+    if (!node) return
+
     const handleDirectMessage = (evt: CustomEvent<DirectMessageEvent>) => {
       const peerId = evt.detail.connection.remotePeer.toString()
 
@@ -181,17 +187,22 @@ export const ChatProvider = ({ children }: any) => {
       })
     }
 
-    libp2p.services.directMessage.addEventListener(directMessageEvent, handleDirectMessage)
+    node.services.directMessage.addEventListener(directMessageEvent, handleDirectMessage)
 
     return () => {
-      libp2p.services.directMessage.removeEventListener(directMessageEvent, handleDirectMessage)
+      const node = libp2p.getNode()
+      if (!node) return
+      node.services.directMessage.removeEventListener(directMessageEvent, handleDirectMessage)
     }
-  }, [directMessages, libp2p.services.directMessage, setDirectMessages])
+  }, [directMessages, libp2p, setDirectMessages])
 
   useEffect(() => {
-    libp2p.services.pubsub.addEventListener('message', messageCB)
+    const node = libp2p.getNode()
+    if (!node) return
 
-    libp2p.handle(FILE_EXCHANGE_PROTOCOL, ({ stream }) => {
+    node.services.pubsub.addEventListener('message', messageCB)
+
+    node.handle(FILE_EXCHANGE_PROTOCOL, ({ stream }) => {
       pipe(
         stream.source,
         (source) => lp.decode(source),
@@ -208,12 +219,14 @@ export const ChatProvider = ({ children }: any) => {
 
     return () => {
       ;(async () => {
+        const node = libp2p.getNode()
+        if (!node) return
         // Cleanup handlers 👇
-        libp2p.services.pubsub.removeEventListener('message', messageCB)
-        await libp2p.unhandle(FILE_EXCHANGE_PROTOCOL)
+        node.services.pubsub.removeEventListener('message', messageCB)
+        await node.unhandle(FILE_EXCHANGE_PROTOCOL)
       })()
     }
-  })
+  }, [files, libp2p])
 
   return (
     <chatContext.Provider

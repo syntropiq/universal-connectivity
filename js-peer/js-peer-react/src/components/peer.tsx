@@ -22,21 +22,26 @@ export function PeerWrapper({ peer, self, withName, withUnread }: PeerProps) {
 
   useEffect(() => {
     const init = async () => {
-      if (await libp2p.peerStore.has(peer)) {
-        const p = await libp2p.peerStore.get(peer);
+      const node = libp2p.getNode();
+      if (!node) return;
+      if (await node.peerStore.has(peer)) {
+        const p = await node.peerStore.get(peer);
         if (p.protocols.length > 0) {
           setIdentified(true);
         }
       }
     };
     init();
-  }, [libp2p.peerStore, peer]);
+  }, [libp2p, peer]);
 
   if (self || !identified) {
     return <Peer peer={peer} self={self} withName={withName} withUnread={withUnread} />;
   }
 
-  if (identified && libp2p.services.directMessage.isDMPeer(peer)) {
+  const node = libp2p.getNode();
+  if (!node) return null;
+
+  if (identified && node.services.directMessage.isDMPeer(peer)) {
     return (
       <div className="relative inline-block text-left cursor-pointer" onClick={() => handleSetRoomId()}>
         <Peer peer={peer} self={self} withName={withName} withUnread={withUnread} />
@@ -44,7 +49,7 @@ export function PeerWrapper({ peer, self, withName, withUnread }: PeerProps) {
     );
   }
 
-  if (identified && !libp2p.services.directMessage.isDMPeer(peer)) {
+  if (identified && !node.services.directMessage.isDMPeer(peer)) {
     return (
       <div className="relative inline-block text-left group">
         <Peer peer={peer} self={self} withName={withName} withUnread={withUnread} />

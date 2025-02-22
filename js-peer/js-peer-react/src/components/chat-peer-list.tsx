@@ -10,22 +10,35 @@ export function ChatPeerList() {
 
   useEffect(() => {
     const onSubscriptionChange = () => {
-      const subscribers = libp2p.services.pubsub.getSubscribers(CHAT_TOPIC) as PeerId[]
+      // Access the underlying node to get subscribers since P2PNode wraps a libp2p node
+      const node = libp2p.getNode()
+      if (!node) return
+      const subscribers = node.services.pubsub.getSubscribers(CHAT_TOPIC) as PeerId[]
       setSubscribers(subscribers)
     }
     onSubscriptionChange()
-    libp2p.services.pubsub.addEventListener('subscription-change', onSubscriptionChange)
+
+    const node = libp2p.getNode()
+    if (!node) return
+
+    node.services.pubsub.addEventListener('subscription-change', onSubscriptionChange)
     return () => {
-      libp2p.services.pubsub.removeEventListener('subscription-change', onSubscriptionChange)
+      const node = libp2p.getNode()
+      if (!node) return
+      node.services.pubsub.removeEventListener('subscription-change', onSubscriptionChange)
     }
-  }, [libp2p, setSubscribers])
+  }, [libp2p])
+
+  // Get the peerId from the underlying node
+  const node = libp2p.getNode()
+  if (!node) return null
 
   return (
     <div className="border-l border-gray-300 lg:col-span-1">
       <h2 className="my-2 mb-2 ml-2 text-lg text-gray-600">Peers</h2>
       <div className="overflow-auto h-[32rem]">
         <div className="px-3 py-2 border-b border-gray-300 focus:outline-none">
-          {<PeerWrapper peer={libp2p.peerId} self withName={true} withUnread={false} />}
+          {<PeerWrapper peer={node.peerId} self withName={true} withUnread={false} />}
         </div>
         {subscribers.map((p) => (
           <div key={p.toString()} className="px-3 py-2 border-b border-gray-300 focus:outline-none">

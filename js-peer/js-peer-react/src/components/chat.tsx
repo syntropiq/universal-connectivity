@@ -26,17 +26,16 @@ export default function ChatContainer() {
   // Send message to public chat over gossipsub
   const sendPublicMessage = useCallback(async () => {
     if (input === '') return
+    const node = libp2p.getNode()
+    if (!node) return
 
-    log(`peers in gossip for topic ${CHAT_TOPIC}:`, libp2p.services.pubsub.getSubscribers(CHAT_TOPIC).toString())
-
-    const res = await libp2p.services.pubsub.publish(CHAT_TOPIC, new TextEncoder().encode(input))
+    log(`peers in gossip for topic ${CHAT_TOPIC}:`, node.services.pubsub.getSubscribers(CHAT_TOPIC).toString())
+    const res = await node.services.pubsub.publish(CHAT_TOPIC, new TextEncoder().encode(input))
     log(
       'sent message to: ',
       res.recipients.map((peerId) => peerId.toString()),
     )
-
-    const myPeerId = libp2p.peerId.toString()
-
+    const myPeerId = node.peerId.toString()
     setMessageHistory([
       ...messageHistory,
       {
@@ -48,22 +47,21 @@ export default function ChatContainer() {
         receivedAt: Date.now(),
       },
     ])
-
     setInput('')
   }, [input, messageHistory, setInput, libp2p, setMessageHistory])
 
   // Send direct message over custom protocol
   const sendDirectMessage = useCallback(async () => {
-    try {
-      const res = await libp2p.services.directMessage.send(peerIdFromString(roomId), input)
+    const node = libp2p.getNode()
+    if (!node) return
 
+    try {
+      const res = await node.services.directMessage.send(peerIdFromString(roomId), input)
       if (!res) {
         log('Failed to send message')
         return
       }
-
-      const myPeerId = libp2p.peerId.toString()
-
+      const myPeerId = node.peerId.toString()
       const newMessage: ChatMessage = {
         msgId: crypto.randomUUID(),
         msg: input,
@@ -72,14 +70,11 @@ export default function ChatContainer() {
         read: true,
         receivedAt: Date.now(),
       }
-
       const updatedMessages = directMessages[roomId] ? [...directMessages[roomId], newMessage] : [newMessage]
-
       setDirectMessages({
         ...directMessages,
         [roomId]: updatedMessages,
       })
-
       setInput('')
     } catch (e: any) {
       log(e)
@@ -88,27 +83,26 @@ export default function ChatContainer() {
 
   const sendFile = useCallback(
     async (readerEvent: ProgressEvent<FileReader>) => {
-      const fileBody = readerEvent.target?.result as ArrayBuffer
+      const node = libp2p.getNode()
+      if (!node) return
 
-      const myPeerId = libp2p.peerId.toString()
+      const fileBody = readerEvent.target?.result as ArrayBuffer
+      const myPeerId = node.peerId.toString()
       const file: ChatFile = {
         id: uuidv4(),
         body: new Uint8Array(fileBody),
         sender: myPeerId,
       }
       setFiles(files.set(file.id, file))
-
       log(
         `peers in gossip for topic ${CHAT_FILE_TOPIC}:`,
-        libp2p.services.pubsub.getSubscribers(CHAT_FILE_TOPIC).toString(),
+        node.services.pubsub.getSubscribers(CHAT_FILE_TOPIC).toString(),
       )
-
-      const res = await libp2p.services.pubsub.publish(CHAT_FILE_TOPIC, new TextEncoder().encode(file.id))
+      const res = await node.services.pubsub.publish(CHAT_FILE_TOPIC, new TextEncoder().encode(file.id))
       log(
         'sent file to: ',
         res.recipients.map((peerId) => peerId.toString()),
       )
-
       const msg: ChatMessage = {
         msgId: crypto.randomUUID(),
         msg: newChatFileMessage(file.id, file.body),
