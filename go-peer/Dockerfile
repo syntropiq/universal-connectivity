@@ -20,8 +20,8 @@ FROM alpine:latest
 RUN apk --no-cache add ca-certificates && \
     adduser -D appuser
 
-# Create a directory for the application and set proper permissions
-RUN mkdir -p /app/data && \
+# Create directories for the application and identity storage
+RUN mkdir -p /app/data /app/identity && \
     chown -R appuser:appuser /app
 
 # Copy the binary from builder
@@ -30,10 +30,15 @@ COPY --from=builder /usr/local/bin/universal-chat-go /usr/local/bin/universal-ch
 # Set working directory
 WORKDIR /app/data
 
+# Create volume for persistent identity storage
+VOLUME ["/app/identity"]
+
 # Use non-root user
 USER appuser
 
-# Expose port if your application needs it (uncomment and adjust if needed)
-EXPOSE 9050
+# Expose the p2p port (9095 for TCP)
+EXPOSE 9095/tcp
 
-CMD ["universal-chat-go", "--headless"]
+# Run in headless mode with identity file in volume
+CMD ["universal-chat-go", "--headless", "--identity", "/app/identity/identity.key"]
+

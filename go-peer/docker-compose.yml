@@ -1,0 +1,21 @@
+version: '3.8'
+
+services:
+  p2p-node:
+    build: .
+    container_name: p2p-node
+    restart: unless-stopped
+    ports:
+      - "9095:9095"
+    volumes:
+      - p2p-identity:/app/identity
+    networks:
+      - p2p-net
+
+networks:
+  p2p-net:
+    driver: bridge
+
+volumes:
+  p2p-identity:
+    driver: local
