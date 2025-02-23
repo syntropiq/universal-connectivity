@@ -1,12 +1,10 @@
-version: '3.8'
-
 services:
   p2p-node:
     build: .
     container_name: p2p-node
     restart: unless-stopped
     ports:
-      - "9095:9095"
+      - "9050:9050"
     volumes:
       - p2p-identity:/app/identity
     networks:

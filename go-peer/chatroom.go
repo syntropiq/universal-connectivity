@@ -13,7 +13,7 @@ import (
 )
 
 // ChatRoomBufSize is the number of incoming messages to buffer for each topic.
-const ChatRoomBufSize = 128
+const ChatRoomBufSize = 256
 
 // Topic used to broadcast browser WebRTC addresses
 const PubSubDiscoveryTopic string = "universal-connectivity-browser-peer-discovery"

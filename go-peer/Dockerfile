@@ -1,5 +1,5 @@
 # Use a specific version of golang alpine for better reproducibility
-FROM golang:1.23-alpine AS builder
+FROM golang:1.24-alpine AS builder
 
 WORKDIR /usr/src/app
 
@@ -36,8 +36,8 @@ VOLUME ["/app/identity"]
 # Use non-root user
 USER appuser
 
-# Expose the p2p port (9095 for TCP)
-EXPOSE 9095/tcp
+# Expose the p2p port (9050 for TCP)
+EXPOSE 9050/tcp
 
 # Run in headless mode with identity file in volume
 CMD ["universal-chat-go", "--headless", "--identity", "/app/identity/identity.key"]
